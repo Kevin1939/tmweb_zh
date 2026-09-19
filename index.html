@@ -2,12 +2,10 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <!-- 严禁任何浏览器视口缩放与滑动 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>tamaemu</title>
   <link rel="icon" type="image/png" href="maragotchifavicon.png">
 
-  <!-- 直接内嵌核心样式，彻底免疫 Cloudflare CSS 缓存问题 -->
   <style>
     :root {
       --bg: #12100e;
@@ -31,7 +29,6 @@
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
 
-    /* 锁定全屏，彻底禁止滑动与滚动条 */
     html, body {
       margin: 0;
       padding: 0;
@@ -48,7 +45,6 @@
       -webkit-user-select: none;
     }
 
-    /* 视口与缩放舞台：利用绝对定位锁定中心点，完全杜绝错位 */
     #stage-viewport {
       position: absolute;
       inset: 0;
@@ -72,7 +68,6 @@
       transform-origin: center center;
     }
 
-    /* 720x720 边框与游戏画面点对点 */
     #device {
       width: 720px;
       height: 720px;
@@ -117,7 +112,12 @@
     }
     #drop .big { font-weight: bold; color: var(--ink); font-size: 16px; }
     #drop .sub { color: var(--dim); font-size: 12px; }
-    .device[data-empty="0"] #drop { display: none; }
+
+    /* 修复核心：强制在固件载入后隐藏遮罩 */
+    #device[data-empty="0"] #drop,
+    .device[data-empty="0"] #drop {
+      display: none !important;
+    }
 
     #device .keys {
       position: absolute;
@@ -148,9 +148,6 @@
     .key[data-held="1"] { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
     #device.hide-keys .keys { display: none !important; }
 
-    /* =====================================================================
-     * 右上角常驻半透明悬浮齿轮 (强制固定屏幕右上角)
-     * =================================================================== */
     #fabMenuBtn {
       position: fixed !important;
       top: 10px !important;
@@ -174,9 +171,6 @@
     }
     #fabMenuBtn:active { opacity: 1; transform: scale(0.95); }
 
-    /* =====================================================================
-     * 全能掌机菜单面板（完全基于 div 遮罩，绝对必弹，永不失效）
-     * =================================================================== */
     #rgMenuOverlay {
       position: fixed;
       inset: 0;
@@ -351,7 +345,6 @@
 </head>
 
 <body>
-  <!-- 舞台基座 -->
   <div id="stage-viewport">
     <div id="stage">
       <div class="body device" id="device" data-skin="border" data-empty="1" data-live="0">
@@ -372,7 +365,7 @@
     </div>
   </div>
 
-  <!-- 右上角悬浮齿轮 (独立于任何容器，永远锁定真实右上角) -->
+  <!-- 右上角悬浮齿轮 -->
   <button id="fabMenuBtn" type="button" aria-label="菜单设置">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3"></circle>
@@ -380,7 +373,7 @@
     </svg>
   </button>
 
-  <!-- 弹窗菜单层 (默认隐藏，点击齿轮必开) -->
+  <!-- 菜单遮罩 -->
   <div id="rgMenuOverlay" style="display:none;">
     <div class="menu-box">
       <div class="menu-header">
@@ -402,7 +395,6 @@
       </div>
 
       <div class="menu-body">
-        <!-- TAB 1: 控制 -->
         <div class="tab-pane" id="tabControls">
           <div id="status">准备就绪</div>
           <div class="row">
@@ -417,7 +409,6 @@
           </div>
         </div>
 
-        <!-- TAB 2: 设置 -->
         <div class="tab-pane" id="tabSettings" hidden>
           <div id="settingsPanel">
             <div class="muted" id="awakeTier"></div>
@@ -440,7 +431,7 @@
             <hr style="border:0;border-top:1px solid var(--line);margin:.6rem 0">
 
             <div class="row" style="justify-content:space-between">
-              <span>隐藏屏幕按键 (使用物理键)</span>
+              <span>隐藏屏幕按键 (使用 RG Rotate 物理键)</span>
               <input type="checkbox" id="hideKeysToggle" style="width:1.2rem;height:1.2rem">
             </div>
 
@@ -454,7 +445,6 @@
           </div>
         </div>
 
-        <!-- TAB 3: 存档 -->
         <div class="tab-pane" id="tabSaves" hidden>
           <div class="row" style="justify-content:space-between">
             <span style="font-weight:bold">存档槽位</span>
@@ -475,7 +465,6 @@
           </div>
         </div>
 
-        <!-- TAB 4: DLC & 帮助 -->
         <div class="tab-pane" id="tabDlc" hidden>
           <div class="muted" id="dlcUnsupported" hidden></div>
           <div id="dlcBody" hidden style="display:flex;flex-direction:column;gap:.6rem">
@@ -547,9 +536,7 @@
     </div>
   </dialog>
 
-  <!-- 第一段脚本：纯同步执行，确保无论发生什么，按钮都必弹、屏幕必缩放 -->
   <script>
-    // 1. 自适应硬件缩放引擎
     function autoFit() {
       var stage = document.getElementById('stage');
       if (!stage) return;
@@ -564,7 +551,6 @@
     document.addEventListener('webkitfullscreenchange', function() { setTimeout(autoFit, 60); });
     autoFit();
 
-    // 2. 菜单弹窗直接控制（无需等待 WASM 加载，点齿轮立刻必弹）
     var menuOverlay = document.getElementById('rgMenuOverlay');
     var fabBtn = document.getElementById('fabMenuBtn');
     var closeBtn = document.getElementById('closeMenuBtn');
@@ -585,7 +571,6 @@
       document.getElementById('rom').click();
     };
 
-    // 3. Tab 标签切换
     var tabBtns = document.querySelectorAll('.tab-btn');
     for (var i = 0; i < tabBtns.length; i++) {
       tabBtns[i].onclick = function() {
@@ -598,7 +583,6 @@
       };
     }
 
-    // 4. Android 真全屏控制
     var fsBtn = document.getElementById('fullscreenBtn');
     fsBtn.onclick = function() {
       var doc = document;
@@ -613,7 +597,6 @@
     };
   </script>
 
-  <!-- 第二段脚本：模拟器核心业务 -->
   <script type="module">
     import createTamaemu from './tamaemu.mjs';
     import * as Slots from './slots.js';
@@ -674,8 +657,13 @@
     };
     const titleOf = n => devices.find(d => d.name === n)?.title ?? n;
 
-    function setEmpty(isEmpty) { $('device').dataset.empty = isEmpty ? '1' : '0'; }
-    function setLive(isLive)   { $('device').dataset.live  = isLive ? '1' : '0'; }
+    // 双重确保遮罩彻底隐藏
+    function setEmpty(isEmpty) {
+      $('device').dataset.empty = isEmpty ? '1' : '0';
+      const dropEl = $('drop');
+      if (dropEl) dropEl.style.display = isEmpty ? 'flex' : 'none';
+    }
+    function setLive(isLive) { $('device').dataset.live = isLive ? '1' : '0'; }
 
     const grabFlash = () => M.HEAPU8.slice(M._tw_flash_ptr(), M._tw_flash_ptr() + M._tw_flash_size());
     const grabRam   = () => M.HEAPU8.slice(M._tw_ram_ptr(), M._tw_ram_ptr() + M._tw_ram_size());
