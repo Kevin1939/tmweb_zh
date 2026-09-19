@@ -1,33 +1,35 @@
 <!doctype html>
 <meta charset="utf-8">
-<!-- 关键修复：禁止移动端自动放大与双指缩放，锁定真实 1:1 像素视口 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>tamaemu</title>
 <link rel="icon" type="image/png" href="maragotchifavicon.png">
 <link rel="stylesheet" href="theme.css">
 
-<!-- 舞台容器 -->
-<div class="main-stage">
-  <div class="body device" id="device" data-empty="1" data-live="0">
-    <div class="glass">
-      <canvas id="screen" width="128" height="128"></canvas>
-      <div id="drop">
-        <div class="big">点击或拖入固件</div>
-        <div class="sub">选择 Tamagotchi .bin 文件</div>
-        <input type="file" id="rom" accept=".bin,.BIN,application/octet-stream" hidden>
+<!-- 舞台视口：负责全局居中并隔离滚动 -->
+<div id="stage-viewport">
+  <!-- 核心 720x720 基座（由 JS scale 自动等比缩放） -->
+  <div id="stage">
+    <div class="body device" id="device" data-skin="border" data-empty="1" data-live="0">
+      <div class="glass">
+        <canvas id="screen" width="128" height="128"></canvas>
+        <div id="drop">
+          <div class="big">点击或拖入固件</div>
+          <div class="sub">选择 Tamagotchi .bin 文件</div>
+          <input type="file" id="rom" accept=".bin,.BIN,application/octet-stream" hidden>
+        </div>
       </div>
-    </div>
-    <div class="keys">
-      <button class="key" id="btnA" data-bit="1" disabled><span class="l">A</span><span class="k">Z</span></button>
-      <button class="key" id="btnB" data-bit="2" disabled><span class="l">B</span><span class="k">X</span></button>
-      <button class="key" id="btnC" data-bit="4" disabled><span class="l">C</span><span class="k">C</span></button>
+      <div class="keys">
+        <button class="key" id="btnA" data-bit="1" disabled><span class="l">A</span><span class="k">Z</span></button>
+        <button class="key" id="btnB" data-bit="2" disabled><span class="l">B</span><span class="k">X</span></button>
+        <button class="key" id="btnC" data-bit="4" disabled><span class="l">C</span><span class="k">C</span></button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- 右上角悬浮齿轮按钮 (FAB) -->
+<!-- 右上角悬浮小齿轮 -->
 <button id="fabMenuBtn" type="button" aria-label="菜单设置" title="设置与菜单">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="3"></circle>
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
   </svg>
@@ -163,7 +165,6 @@
 <button id="settingsBtn" hidden></button>
 <button id="savesHelpBtn" hidden></button>
 <div id="savesHelp" hidden></div>
-<input type="checkbox" id="skinToggle" checked hidden>
 
 <dialog id="deviceDlg">
   <h2>这是哪一款拓麻歌子？</h2>
@@ -211,6 +212,26 @@
     <button class="primary" id="helpDlgOk" autofocus>我知道了</button>
   </div>
 </dialog>
+
+<script>
+/* =====================================================================
+ * 核心硬件自适应缩放引擎（永不放大、永不溢出）
+ * =================================================================== */
+function fitScreen() {
+  const stage = document.getElementById('stage');
+  if (!stage) return;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  // 按照屏幕较短的一边等比缩放 720x720 基座
+  const scale = Math.min(w / 720, h / 720);
+  stage.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', fitScreen);
+window.addEventListener('orientationchange', fitScreen);
+document.addEventListener('fullscreenchange', () => { setTimeout(fitScreen, 50); });
+document.addEventListener('webkitfullscreenchange', () => { setTimeout(fitScreen, 50); });
+fitScreen();
+</script>
 
 <script type="module">
 import createTamaemu from './tamaemu.mjs';
@@ -275,7 +296,6 @@ function toggleFullscreen() {
   if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
     const rfs = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
     if (rfs) {
-      // navigationUI: "hide" 能够命令 Android 彻底隐藏虚拟小白条和通知栏
       rfs.call(docEl, { navigationUI: 'hide' }).catch(() => {
         rfs.call(docEl).catch(() => {});
       });
@@ -713,172 +733,4 @@ function setRunning(on) {
   $('play').textContent = on ? '暂停' : (booted ? '继续' : '开始');
   $('saveNow').disabled = $('reboot').disabled = !booted || slotId == null;
   setLive(on);
-  setState(on ? '运行中' : (booted ? '已暂停' : '未加载固件'), on ? 'on' : '');
-  if (on) { audioStart(); last = performance.now(); acc = 0; requestAnimationFrame(loop); }
-  else audioStop();
-}
-
-const FRAME_MS = 1000 / 60, MAX_STEP_MS = 250, MAX_FRAMES = 6;
-let last = 0, acc = 0;
-function loop(now) {
-  if (!running) return;
-  requestAnimationFrame(loop);
-  let dt = now - last; last = now;
-  if (dt > MAX_STEP_MS) dt = MAX_STEP_MS;
-  acc += dt;
-  let n = 0;
-  while (acc >= FRAME_MS && n < MAX_FRAMES) { acc -= FRAME_MS; n++; }
-  if (acc > FRAME_MS * MAX_FRAMES) acc = 0;
-
-  if (n) {
-    M._tw_buttons(held);
-    for (let i = 0; i < n; i++) M._tw_run_frame();
-    if (pendingRelease) { setHeld(held & ~pendingRelease); pendingRelease = 0; }
-    draw();
-    audioPump();
-    Link.pump();
-  }
-}
-
-const imgData = new ImageData(128, 128);
-function draw() {
-  const p = M._tw_frame();
-  imgData.data.set(M.HEAPU8.subarray(p, p + 128 * 128 * 4));
-  ctx.putImageData(imgData, 0, 0);
-}
-
-const btns = [$('btnA'), $('btnB'), $('btnC')];
-let held = 0, pendingRelease = 0;
-function setHeld(mask) {
-  held = mask & 7;
-  for (const b of btns) b.dataset.held = (held & +b.dataset.bit) ? '1' : '0';
-}
-const press = bit => { pendingRelease &= ~bit; setHeld(held | bit); };
-const release = bit => { pendingRelease |= bit; };
-
-const BTN_BIT = { A: 1, B: 2, C: 4 };
-const DEFAULT_KEYS = { KeyZ: 1, ArrowLeft: 1, KeyX: 2, ArrowDown: 2, KeyC: 4, ArrowRight: 4 };
-
-function loadCustomKeys() {
-  try { return JSON.parse(localStorage.getItem('tamaemu.keymap') || '{}'); } catch { return {}; }
-}
-let customKeys = loadCustomKeys();
-function buildKeys() {
-  const k = { ...DEFAULT_KEYS };
-  for (const btn of ['A', 'B', 'C']) {
-    const code = customKeys[btn];
-    if (code) k[code] = BTN_BIT[btn];
-  }
-  return k;
-}
-let KEYS = buildKeys();
-
-addEventListener('keydown', e => {
-  if ($('deviceDlg').open || $('rgMenuModal').open) return;
-  if (!booted || e.repeat) return;
-  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
-  const bit = KEYS[e.code];
-  if (bit) { e.preventDefault(); press(bit); }
-});
-addEventListener('keyup', e => {
-  const bit = KEYS[e.code];
-  if (bit) { e.preventDefault(); release(bit); }
-});
-
-function syncKeyLabels() {
-  for (const btn of ['A', 'B', 'C']) {
-    const val = customKeys[btn] ?? (btn === 'A' ? 'KeyZ' : btn === 'B' ? 'KeyX' : 'KeyC');
-    $('btn' + btn).querySelector('.k').textContent = val.replace(/^Key/, '');
-    const el = $('remapVal' + btn);
-    if (el) el.textContent = val;
-  }
-}
-syncKeyLabels();
-
-let recording = null;
-function stopRecording() {
-  if (!recording) return;
-  removeEventListener('keydown', recording, true);
-  recording = null;
-}
-for (const el of document.querySelectorAll('.remapBtn')) {
-  el.onclick = () => {
-    stopRecording();
-    const btn = el.dataset.btn;
-    const valEl = $('remapVal' + btn);
-    valEl.textContent = '按任意按键...';
-    recording = e => {
-      e.preventDefault(); e.stopImmediatePropagation();
-      if (e.code !== 'Escape') {
-        customKeys[btn] = e.code;
-        localStorage.setItem('tamaemu.keymap', JSON.stringify(customKeys));
-        KEYS = buildKeys();
-        syncKeyLabels();
-      }
-      stopRecording();
-    };
-    addEventListener('keydown', recording, true);
-  };
-}
-$('remapReset').onclick = () => {
-  stopRecording(); customKeys = {};
-  localStorage.removeItem('tamaemu.keymap');
-  KEYS = buildKeys(); syncKeyLabels();
-};
-
-/* 掌机虚拟按键隐藏 */
-function applyHideKeys(on) {
-  $('device').classList.toggle('hide-keys', on);
-  $('hideKeysToggle').checked = on;
-  localStorage.setItem('tamaemu.hidekeys', on ? '1' : '0');
-}
-$('hideKeysToggle').onchange = e => applyHideKeys(e.target.checked);
-applyHideKeys(localStorage.getItem('tamaemu.hidekeys') === '1');
-
-for (const b of btns) {
-  const bit = +b.dataset.bit;
-  b.addEventListener('pointerdown', e => { e.preventDefault(); press(bit); });
-  b.addEventListener('pointerup', () => release(bit));
-  b.addEventListener('pointercancel', () => { pendingRelease = 0; setHeld(held & ~bit); });
-}
-
-storageDown = !(await Slots.probe());
-Device.init();
-Dlc.init({
-  M,
-  deviceName: () => booted ? $('device-sel').value : '',
-  deviceTitle: () => titleOf($('device-sel').value),
-  liveFlash: grabFlash,
-  say,
-  storageAvailable: () => !storageDown,
-  download: (bytes) => download('dlc.sav', bytes),
-  applyImage: async (image) => {
-    const ram = grabRam();
-    const carried = emuTotal();
-    const device = $('device-sel').value;
-    setRunning(false);
-    if (!bootFlash(device, image)) return;
-    emuBase = carried;
-    restoreRam(ram);
-    M._tw_flash_clean();
-    draw();
-    if (slotId != null) {
-      await Slots.update(slotId, { flash: image.slice(), ram: grabRam(), emuSecs: emuTotal() });
-    }
-    await refreshSlots();
-    setRunning(true);
-  },
-});
-
-Link.init(M, {
-  device: () => booted ? $('device-sel').value : '',
-  running: () => running,
-  frame: () => Number(M._tw_cycles()),
-  slot: () => slotId,
-  onState: () => {},
-  onSlotLost: () => { slotId = null; setRunning(false); refreshSlots(); },
-});
-
-await refreshSlots();
-say('点击屏幕或右上角载入 ROM。');
-</script>
+  setState(on ? '运行中' : (booted ? '已暂停' : '未加载固件'),
