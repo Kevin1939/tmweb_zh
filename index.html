@@ -1,18 +1,19 @@
 <!doctype html>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 关键修复：禁止移动端自动放大与双指缩放，锁定真实 1:1 像素视口 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>tamaemu</title>
 <link rel="icon" type="image/png" href="maragotchifavicon.png">
 <link rel="stylesheet" href="theme.css">
 
-<!-- 游戏主舞台：720x720 纯粹游戏画面 -->
+<!-- 舞台容器 -->
 <div class="main-stage">
-  <div class="body device" id="device" data-empty="1" data-live="0" data-skin="border">
+  <div class="body device" id="device" data-empty="1" data-live="0">
     <div class="glass">
       <canvas id="screen" width="128" height="128"></canvas>
       <div id="drop">
-        <div class="big">点击或把固件拖入此处</div>
-        <div class="sub">选择你的 Tamagotchi .bin 文件</div>
+        <div class="big">点击或拖入固件</div>
+        <div class="sub">选择 Tamagotchi .bin 文件</div>
         <input type="file" id="rom" accept=".bin,.BIN,application/octet-stream" hidden>
       </div>
     </div>
@@ -24,15 +25,15 @@
   </div>
 </div>
 
-<!-- 右上角半透明悬浮图标（点开即弹出综合菜单） -->
-<button id="fabMenuBtn" type="button" aria-label="菜单设置" title="菜单与设置">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+<!-- 右上角悬浮齿轮按钮 (FAB) -->
+<button id="fabMenuBtn" type="button" aria-label="菜单设置" title="设置与菜单">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="3"></circle>
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
   </svg>
 </button>
 
-<!-- 掌机核心弹出管理菜单 -->
+<!-- 掌机全能管理弹窗 -->
 <dialog id="rgMenuModal">
   <div class="modal-header">
     <div class="modal-title-area">
@@ -40,9 +41,8 @@
       <span class="pill" id="statePill">未加载固件</span>
     </div>
     <div class="row" style="gap:.4rem">
-      <button id="fullscreenBtn" type="button" title="隐藏系统栏">⛶ 真全屏</button>
-      <button id="themeBtn" type="button">切换主题</button>
-      <button id="closeMenuBtn" class="primary" type="button">确定 / 返回游戏</button>
+      <button id="fullscreenBtn" type="button">⛶ 真全屏</button>
+      <button id="closeMenuBtn" class="primary" type="button">返回游戏</button>
     </div>
   </div>
 
@@ -58,13 +58,11 @@
     <div class="tab-pane" id="tabControls">
       <div id="status">加载中&hellip;</div>
       <div class="row">
-        <button class="primary" id="play" disabled style="flex:1.5">开始 / 暂停</button>
-        <button id="saveNow" disabled style="flex:1" title="立即写入当前存档位">保存</button>
-        <button id="reboot" disabled style="flex:1" title="从上次保存的存档重启">重启</button>
+        <button class="primary" id="play" disabled style="flex:1.4">开始 / 暂停</button>
+        <button id="saveNow" disabled style="flex:1">立即存档</button>
+        <button id="reboot" disabled style="flex:1">重启</button>
       </div>
-      <div class="row" style="margin-top:.4rem">
-        <button id="menuPickRomBtn" class="primary" style="flex:1">📂 载入 / 更换 ROM 文件&hellip;</button>
-      </div>
+      <button id="menuPickRomBtn" class="primary" style="width:100%;margin-top:.3rem">📂 选择并载入 ROM 固件&hellip;</button>
       <div id="startRow" hidden>
         <div class="muted" id="startNote"></div>
         <button id="startNew" style="width:100%">启动新的拓麻歌子</button>
@@ -75,35 +73,35 @@
     <div class="tab-pane" id="tabSettings" hidden>
       <div id="settingsPanel">
         <div class="muted" id="awakeTier"></div>
-        <div class="row" style="gap:.6rem">
-          <span style="min-width:3.5rem">音量</span>
+        <div class="row" style="gap:.5rem">
+          <span style="min-width:3rem">音量</span>
           <input type="range" id="sound" min="0" max="100" step="1" value="100" style="flex:1">
           <button id="soundMute">静音</button>
           <span id="soundVal" style="min-width:4ch;text-align:right">100%</span>
         </div>
-        <div class="row" style="justify-content:space-between;margin-top:.6rem">
+        <div class="row" style="justify-content:space-between;margin-top:.4rem">
           <span>游戏时钟倍速</span>
-          <span class="row" style="gap:.4rem">
+          <span class="row" style="gap:.3rem">
             <button id="speedDown" disabled>&minus;</button>
-            <span id="speedVal" style="min-width:4ch;text-align:center">1&times;</span>
+            <span id="speedVal" style="min-width:3.5ch;text-align:center">1&times;</span>
             <button id="speedUp" disabled>+</button>
           </span>
         </div>
         <div class="muted" id="speedNote" hidden></div>
-        
-        <hr style="border:0;border-top:1px solid var(--line);margin:.8rem 0">
-        
+
+        <hr style="border:0;border-top:1px solid var(--line);margin:.6rem 0">
+
         <div class="row" style="justify-content:space-between">
-          <span>隐藏屏幕按键（使用 RG Rotate 物理键）</span>
+          <span>隐藏屏幕按键 (推荐使用物理键)</span>
           <input type="checkbox" id="hideKeysToggle" style="width:1.2rem;height:1.2rem">
         </div>
-        <div class="row" style="justify-content:space-between;margin-top:.4rem" hidden>
-          <span>紧凑皮肤 (720&times;720)</span>
-          <input type="checkbox" id="skinToggle" checked>
+        <div class="row" style="justify-content:space-between;margin-top:.4rem">
+          <span>界面主题切换</span>
+          <button id="themeBtn" type="button" style="font-size:12px;padding:.2rem .6rem">切换浅/深色</button>
         </div>
 
-        <div class="muted" style="margin-top:.8rem;margin-bottom:.3rem">按键映射（适配 RG Rotate 物理按键）：</div>
-        <div class="row" id="remapRow" style="gap:.4rem;flex-wrap:wrap">
+        <div class="muted" style="margin-top:.7rem;margin-bottom:.3rem">RG Rotate 物理按键映射：</div>
+        <div class="row" id="remapRow" style="gap:.3rem;flex-wrap:wrap">
           <button type="button" class="remapBtn" data-btn="A">A: <span class="remapVal" id="remapValA">KeyZ</span></button>
           <button type="button" class="remapBtn" data-btn="B">B: <span class="remapVal" id="remapValB">KeyX</span></button>
           <button type="button" class="remapBtn" data-btn="C">C: <span class="remapVal" id="remapValC">KeyC</span></button>
@@ -115,20 +113,20 @@
     <!-- TAB 3: 存档管理 -->
     <div class="tab-pane" id="tabSaves" hidden>
       <div class="row" style="justify-content:space-between">
-        <span style="font-weight:600">本地存档列表</span>
+        <span style="font-weight:bold">存档槽位</span>
         <span class="pill" id="quota"></span>
       </div>
       <div class="muted" id="storageNote" hidden></div>
       <div id="slotList"><div class="empty">暂无存档。</div></div>
       <div class="muted" id="persistNote"></div>
       <div class="muted" id="linkNote" hidden></div>
-      <div class="row" style="margin-top:.4rem">
+      <div class="row" style="margin-top:.3rem">
         <button id="exportLive" style="flex:1" disabled>导出当前 .sav</button>
-        <button id="exportSession" style="flex:1" disabled>导出 .tamasave</button>
+        <button id="exportSession" style="flex:1" disabled>导出跨设备存档</button>
       </div>
       <div class="row">
         <button id="importBtn" style="flex:1">导入外部存档&hellip;</button>
-        <button id="newRom">开新槽位</button>
+        <button id="newRom">开辟新槽位</button>
         <input type="file" id="importFile" accept="application/octet-stream" multiple hidden>
       </div>
     </div>
@@ -136,8 +134,8 @@
     <!-- TAB 4: DLC & 帮助 -->
     <div class="tab-pane" id="tabDlc" hidden>
       <div class="muted" id="dlcUnsupported" hidden></div>
-      <div id="dlcBody" hidden style="display:flex;flex-direction:column;gap:.7rem">
-        <div class="dlctab">当前拓麻歌子上已安装内容：</div>
+      <div id="dlcBody" hidden style="display:flex;flex-direction:column;gap:.6rem">
+        <div style="font-size:12px;font-weight:bold">当前已安装 DLC：</div>
         <div id="dlcUsage"></div>
         <div class="row">
           <button id="dlcAddBtn" style="flex:1">添加 DLC 文件 (.jpg/.bin)&hellip;</button>
@@ -149,22 +147,23 @@
         <div id="dlcStatus" class="muted" hidden></div>
         <div id="dlcResults" hidden></div>
         <div class="row">
-          <button id="dlcApply" hidden style="flex:1">应用到这只拓麻歌子</button>
-          <button id="dlcDownload" hidden>下载修改后 .sav</button>
+          <button id="dlcApply" hidden style="flex:1">应用到当前设备</button>
+          <button id="dlcDownload" hidden>下载 .sav</button>
         </div>
       </div>
-      <div style="border-top:1px solid var(--line);padding-top:.8rem;margin-top:.4rem">
-        <button id="helpBtn" style="width:100%">查看按键与系统说明</button>
+      <div style="border-top:1px solid var(--line);padding-top:.6rem;margin-top:.3rem">
+        <button id="helpBtn" style="width:100%">查看操作说明</button>
       </div>
     </div>
   </div>
 </dialog>
 
-<!-- 保持原有的基础兼容隐藏控件与弹窗 -->
+<!-- 兼容隐藏元素与子弹窗 -->
 <select id="device-sel" hidden></select>
 <button id="settingsBtn" hidden></button>
 <button id="savesHelpBtn" hidden></button>
 <div id="savesHelp" hidden></div>
+<input type="checkbox" id="skinToggle" checked hidden>
 
 <dialog id="deviceDlg">
   <h2>这是哪一款拓麻歌子？</h2>
@@ -179,7 +178,7 @@
   <h2 id="replaceSaveTitle">替换当前存档？</h2>
   <div class="muted" id="replaceSaveText" style="white-space:pre-line"></div>
   <div class="row" style="justify-content:flex-end">
-    <button id="replaceSaveKeep" type="button" autofocus>保留我的存档</button>
+    <button id="replaceSaveKeep" type="button" autofocus>保留现有存档</button>
     <button class="danger" id="replaceSaveConfirm" type="button">替换</button>
   </div>
 </dialog>
@@ -197,16 +196,16 @@
   <div class="help-section">
     <h3>操作按键</h3>
     <div class="muted">
-      键盘默认 Z、X、C 对应三个按键。在“掌机设置”中可根据 RG Rotate 的物理按键重新录制映射。
+      键盘默认 Z、X、C 对应三个按键。可在“掌机设置”中录制并映射为你 RG Rotate 的实体按键。
     </div>
   </div>
   <div class="help-section">
     <h3>时间流速</h3>
-    <div class="muted">+ 和 - 控制游戏内部时钟倍速，0 重置为 1 倍正常时间。</div>
+    <div class="muted">+ 和 - 可加快/减慢时间，0 重置为 1 倍。</div>
   </div>
   <div class="help-section">
     <h3>存档</h3>
-    <div class="muted">每 20 秒自动保存一次，保存在浏览器本地，请定期使用“导出”做离线备份。</div>
+    <div class="muted">每 20 秒自动保存一次到浏览器本地存储，请定期在菜单中导出备份。</div>
   </div>
   <div class="row" style="justify-content:flex-end">
     <button class="primary" id="helpDlgOk" autofocus>我知道了</button>
@@ -239,7 +238,7 @@ let lastNote = '';
 let emuBase = 0;
 const emuTotal = () => emuBase + M._tw_rtc_seconds();
 
-/* --- 菜单与全屏控制 --- */
+/* --- 菜单控制 --- */
 const menuModal = $('rgMenuModal');
 $('fabMenuBtn').onclick = () => menuModal.showModal();
 $('closeMenuBtn').onclick = () => menuModal.close();
@@ -252,7 +251,7 @@ menuModal.addEventListener('click', e => {
   }
 });
 
-// Tab 切换逻辑
+// Tab 标签切换
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -263,7 +262,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   };
 });
 
-// HTML5 真全屏 API
+/* --- Android 深度真全屏 API --- */
 const fsBtn = $('fullscreenBtn');
 function updateFsState() {
   if (!fsBtn) return;
@@ -275,10 +274,15 @@ function toggleFullscreen() {
   const docEl = document.documentElement;
   if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
     const rfs = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
-    if (rfs) rfs.call(docEl).catch(() => {});
+    if (rfs) {
+      // navigationUI: "hide" 能够命令 Android 彻底隐藏虚拟小白条和通知栏
+      rfs.call(docEl, { navigationUI: 'hide' }).catch(() => {
+        rfs.call(docEl).catch(() => {});
+      });
+    }
   } else {
     const efs = doc.exitFullscreen || doc.webkitExitFullscreen;
-    if (efs) efs.call(doc);
+    if (efs) efs.call(doc).catch(() => {});
   }
 }
 fsBtn.onclick = toggleFullscreen;
@@ -290,7 +294,7 @@ const themeBtn = $('themeBtn');
 function applyTheme(t) {
   if (t !== 'dark') t = 'light';
   document.documentElement.dataset.theme = t;
-  themeBtn.textContent = t === 'dark' ? '浅色模式' : '深色模式';
+  themeBtn.textContent = t === 'dark' ? '切为浅色' : '切为深色';
   localStorage.setItem('tamaemu.theme', t);
 }
 applyTheme(localStorage.getItem('tamaemu.theme') ?? 'dark');
@@ -396,7 +400,7 @@ M._tw_set_awake(1);
 function showAwakeTier() {
   const el = $('awakeTier');
   const tier = booted ? M._tw_awake_tier() : 2;
-  el.textContent = tier === 2 ? '' : '屏幕常亮，但此拓麻歌子依然会进入空闲休眠。';
+  el.textContent = tier === 2 ? '' : '此设备仍会进入休眠状态。';
 }
 
 let ac = null, gain = null, cursor = 0;
@@ -471,8 +475,8 @@ $('soundMute').onclick = () => {
 };
 
 let storageDown = false, saveHalted = false, liveName = '';
-const fmtDur = s => s >= 3600 ? `${(s / 3600).toFixed(1)}小时`
-                  : s >= 60   ? `${Math.round(s / 60)}分钟` : `${Math.round(s)}秒`;
+const fmtDur = s => s >= 3600 ? `${(s / 3600).toFixed(1)}h`
+                  : s >= 60   ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`;
 const fmtDate = t => new Date(t).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 
 async function refreshSlots() {
@@ -483,7 +487,7 @@ async function refreshSlots() {
   if (!all.length) {
     const d = document.createElement('div');
     d.className = 'empty';
-    d.textContent = '暂无存档。载入固件后将自动在此处生成存档。';
+    d.textContent = '暂无存档。载入固件后将在此处自动管理。';
     list.append(d);
   }
 
@@ -529,7 +533,7 @@ async function refreshSlots() {
 async function playSlot(id) {
   setRunning(false);
   let rec;
-  try { rec = await Slots.load(id); } catch (err) { say(`读取存档失败: ${err.message}`, 'bad'); return; }
+  try { rec = await Slots.load(id); } catch (err) { say(`读取失败: ${err.message}`, 'bad'); return; }
   const { meta, flash, ram, session } = rec;
   $('device-sel').value = meta.device;
   if (!bootFlash(meta.device, flash)) return;
@@ -583,7 +587,7 @@ async function renameSlot(s) {
 }
 
 async function deleteSlot(s) {
-  if (!confirm(`确定删除 "${s.name}" 吗？此操作无法撤销。`)) return;
+  if (!confirm(`确定删除 "${s.name}" 吗？`)) return;
   await Slots.remove(s.id);
   if (slotId === s.id) { slotId = null; setRunning(false); }
   await refreshSlots();
@@ -659,7 +663,7 @@ $('rom').onchange = e => e.target.files[0] && loadRom(e.target.files[0]);
 async function loadRom(file) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (bytes.length < 1048576) {
-    alert('这不是一个有效的 ROM 文件！');
+    alert('这不是有效的 ROM 文件！');
     $('rom').value = '';
     return;
   }
@@ -688,7 +692,7 @@ function showSpeed() {
   $('speedUp').disabled = !booted || m >= 600;
   const note = $('speedNote');
   note.hidden = (m <= 1);
-  if (m > 1) note.textContent = `当前拓麻歌子流速为 ${m} 倍`;
+  if (m > 1) note.textContent = `当前时钟流速为 ${m} 倍`;
 }
 $('speedUp').onclick = () => { M._tw_speed_step(+1); showSpeed(); };
 $('speedDown').onclick = () => { M._tw_speed_step(-1); showSpeed(); };
@@ -822,7 +826,7 @@ $('remapReset').onclick = () => {
   KEYS = buildKeys(); syncKeyLabels();
 };
 
-/* 掌机按键隐藏设置 */
+/* 掌机虚拟按键隐藏 */
 function applyHideKeys(on) {
   $('device').classList.toggle('hide-keys', on);
   $('hideKeysToggle').checked = on;
@@ -830,9 +834,6 @@ function applyHideKeys(on) {
 }
 $('hideKeysToggle').onchange = e => applyHideKeys(e.target.checked);
 applyHideKeys(localStorage.getItem('tamaemu.hidekeys') === '1');
-
-// 默认 720x720 边框皮肤（永远开启）
-$('device').dataset.skin = 'border';
 
 for (const b of btns) {
   const bit = +b.dataset.bit;
@@ -879,5 +880,5 @@ Link.init(M, {
 });
 
 await refreshSlots();
-say('点击屏幕或右上角设置载入 ROM。');
+say('点击屏幕或右上角载入 ROM。');
 </script>
