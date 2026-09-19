@@ -113,7 +113,7 @@
     #drop .big { font-weight: bold; color: var(--ink); font-size: 16px; }
     #drop .sub { color: var(--dim); font-size: 12px; }
 
-    /* 修复核心：强制在固件载入后隐藏遮罩 */
+    /* 修复遮罩遮挡问题 */
     #device[data-empty="0"] #drop,
     .device[data-empty="0"] #drop {
       display: none !important;
@@ -365,7 +365,6 @@
     </div>
   </div>
 
-  <!-- 右上角悬浮齿轮 -->
   <button id="fabMenuBtn" type="button" aria-label="菜单设置">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3"></circle>
@@ -373,7 +372,6 @@
     </svg>
   </button>
 
-  <!-- 菜单遮罩 -->
   <div id="rgMenuOverlay" style="display:none;">
     <div class="menu-box">
       <div class="menu-header">
@@ -492,7 +490,6 @@
     </div>
   </div>
 
-  <!-- 兼容隐藏元素 -->
   <select id="device-sel" hidden></select>
   <button id="settingsBtn" hidden></button>
   <button id="savesHelpBtn" hidden></button>
@@ -536,7 +533,25 @@
     </div>
   </dialog>
 
+  <!-- 防后退与核心界面同步控制 -->
   <script>
+    // 【核心一：历史记录防后退锁】彻底锁死后退，即使系统发送返回指令也不会跳出页面
+    (function preventBrowserBack() {
+      history.pushState(null, document.title, location.href);
+      window.addEventListener('popstate', function() {
+        history.pushState(null, document.title, location.href);
+      });
+    })();
+
+    // 拦截鼠标后退键（部分肩键会伪装成鼠标侧键）
+    window.addEventListener('mouseup', function(e) {
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, { capture: true });
+
+    // 屏幕缩放引擎
     function autoFit() {
       var stage = document.getElementById('stage');
       if (!stage) return;
@@ -551,6 +566,7 @@
     document.addEventListener('webkitfullscreenchange', function() { setTimeout(autoFit, 60); });
     autoFit();
 
+    // 菜单交互
     var menuOverlay = document.getElementById('rgMenuOverlay');
     var fabBtn = document.getElementById('fabMenuBtn');
     var closeBtn = document.getElementById('closeMenuBtn');
@@ -597,6 +613,7 @@
     };
   </script>
 
+  <!-- 模拟器核心业务 -->
   <script type="module">
     import createTamaemu from './tamaemu.mjs';
     import * as Slots from './slots.js';
@@ -657,7 +674,7 @@
     };
     const titleOf = n => devices.find(d => d.name === n)?.title ?? n;
 
-    // 双重确保遮罩彻底隐藏
+    // 严丝合缝隐藏遮罩
     function setEmpty(isEmpty) {
       $('device').dataset.empty = isEmpty ? '1' : '0';
       const dropEl = $('drop');
@@ -1090,32 +1107,62 @@
       try { return JSON.parse(localStorage.getItem('tamaemu.keymap') || '{}'); } catch { return {}; }
     }
     let customKeys = loadCustomKeys();
+
     function buildKeys() {
       const k = { ...DEFAULT_KEYS };
       for (const btn of ['A', 'B', 'C']) {
         const code = customKeys[btn];
-        if (code) k[code] = BTN_BIT[btn];
+        if (code) {
+          k[code] = BTN_BIT[btn];
+          // 兼容按键代号
+          if (/^KeyCode(\d+)$/.test(code)) {
+            k[code.replace('KeyCode', '')] = BTN_BIT[btn];
+          }
+        }
       }
       return k;
     }
     let KEYS = buildKeys();
 
-    addEventListener('keydown', e => {
+    // 匹配物理键码
+    function matchKey(e) {
+      return KEYS[e.code] || KEYS[e.key] || KEYS['KeyCode' + e.keyCode] || KEYS[e.keyCode];
+    }
+
+    // 【核心二：捕获阶段拦截所有后退按键】
+    function handleKeyEvent(e, isDown) {
       if ($('deviceDlg').open || menuOverlay.style.display !== 'none') return;
-      if (!booted || e.repeat) return;
+      if (!booted) return;
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
-      const bit = KEYS[e.code];
-      if (bit) { e.preventDefault(); press(bit); }
-    });
-    addEventListener('keyup', e => {
-      const bit = KEYS[e.code];
-      if (bit) { e.preventDefault(); release(bit); }
-    });
+
+      const bit = matchKey(e);
+      if (bit) {
+        // 关键：强制阻止浏览器一切默认行为（如后退），并停止冒泡
+        e.preventDefault();
+        e.stopPropagation();
+        if (isDown) {
+          if (!e.repeat) press(bit);
+        } else {
+          release(bit);
+        }
+        return;
+      }
+
+      // 如果是 Android 的返回信号（L1、返回键、侧键等）
+      if (e.key === 'BrowserBack' || e.key === 'Back' || e.code === 'BrowserBack' || e.keyCode === 4 || e.keyCode === 102) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+
+    // 在捕获阶段（capture: true）以最高优先级吞掉事件
+    window.addEventListener('keydown', e => handleKeyEvent(e, true), { capture: true, passive: false });
+    window.addEventListener('keyup', e => handleKeyEvent(e, false), { capture: true, passive: false });
 
     function syncKeyLabels() {
       for (const btn of ['A', 'B', 'C']) {
         const val = customKeys[btn] ?? (btn === 'A' ? 'KeyZ' : btn === 'B' ? 'KeyX' : 'KeyC');
-        $('btn' + btn).querySelector('.k').textContent = val.replace(/^Key/, '');
+        $('btn' + btn).querySelector('.k').textContent = val.replace(/^Key/, '').replace(/^KeyCode/, '');
         const el = $('remapVal' + btn);
         if (el) el.textContent = val;
       }
@@ -1125,35 +1172,42 @@
     let recording = null;
     function stopRecording() {
       if (!recording) return;
-      removeEventListener('keydown', recording, true);
+      window.removeEventListener('keydown', recording, true);
       recording = null;
     }
+
     for (const el of document.querySelectorAll('.remapBtn')) {
       el.onclick = () => {
         stopRecording();
         const btn = el.dataset.btn;
         const valEl = $('remapVal' + btn);
-        valEl.textContent = '按任意物理键...';
+        valEl.textContent = '请按物理键...';
         recording = e => {
-          e.preventDefault(); e.stopImmediatePropagation();
-          if (e.code !== 'Escape') {
-            customKeys[btn] = e.code;
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          if (e.code !== 'Escape' && e.key !== 'Escape') {
+            // 优先获取有效键名，防止空串
+            const keyId = e.code || e.key || ('KeyCode' + e.keyCode);
+            customKeys[btn] = keyId;
             localStorage.setItem('tamaemu.keymap', JSON.stringify(customKeys));
             KEYS = buildKeys();
             syncKeyLabels();
           }
           stopRecording();
         };
-        addEventListener('keydown', recording, true);
+        window.addEventListener('keydown', recording, true);
       };
     }
+
     $('remapReset').onclick = () => {
-      stopRecording(); customKeys = {};
+      stopRecording();
+      customKeys = {};
       localStorage.removeItem('tamaemu.keymap');
-      KEYS = buildKeys(); syncKeyLabels();
+      KEYS = buildKeys();
+      syncKeyLabels();
     };
 
-    /* 掌机按键隐藏 */
     function applyHideKeys(on) {
       $('device').classList.toggle('hide-keys', on);
       $('hideKeysToggle').checked = on;
